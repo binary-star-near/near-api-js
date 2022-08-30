@@ -5,6 +5,7 @@ import { Enum, Assignable } from './utils/enums';
 import { serialize, deserialize } from 'borsh';
 import { KeyType, PublicKey } from './utils/key_pair';
 import { Signer } from './signer';
+import { KeyPair } from './utils/key_pair';
 
 export class FunctionCallPermission extends Assignable {
     allowance?: BN;
@@ -34,14 +35,25 @@ export function functionCallAccessKey(receiverId: string, methodNames: string[],
 
 export class IAction extends Assignable {}
 
-export class CreateAccount extends IAction {}
-export class DeployContract extends IAction { code: Uint8Array; }
-export class FunctionCall extends IAction { methodName: string; args: Uint8Array; gas: BN; deposit: BN; }
-export class Transfer extends IAction { deposit: BN; }
-export class Stake extends IAction { stake: BN; publicKey: PublicKey; }
-export class AddKey extends IAction { publicKey: PublicKey; accessKey: AccessKey; }
-export class DeleteKey extends IAction { publicKey: PublicKey; }
-export class DeleteAccount extends IAction { beneficiaryId: string; }
+class CreateAccount extends IAction {}
+class DeployContract extends IAction { code: Uint8Array; }
+class FunctionCall extends IAction { methodName: string; args: Uint8Array; gas: BN; deposit: BN; }
+class Transfer extends IAction { deposit: BN; }
+class Stake extends IAction { stake: BN; publicKey: PublicKey; }
+class AddKey extends IAction { publicKey: PublicKey; accessKey: AccessKey; }
+class DeleteKey extends IAction { publicKey: PublicKey; }
+class DeleteAccount extends IAction { beneficiaryId: string; }
+class DelegateAction extends Assignable {
+    receiverId: string;
+    deposit: BN;
+    nonce: number
+    actions: Action[];
+}
+class SignedDelegateAction extends IAction {
+    delegateActionSerde: Uint8Array;
+    publicKey: PublicKey;
+    signature: Signature;
+}
 
 export function createAccount(): Action {
     return new Action({createAccount: new CreateAccount({}) });
@@ -95,6 +107,25 @@ export function deleteAccount(beneficiaryId: string): Action {
     return new Action({deleteAccount: new DeleteAccount({ beneficiaryId }) });
 }
 
+export function delegateAction(receiverId: string, deposit: BN, actions: Action[], keyPair: KeyPair, nonce: number): Action {
+    const publicKey = keyPair.getPublicKey();
+    const delegateActionData = new DelegateAction({receiverId, deposit, nonce, actions});
+    const delegateActionSerde = serialize(SCHEMA, delegateActionData)
+    const signature = signDelegateActionData(delegateActionSerde, keyPair);
+    return new Action({delegate: new SignedDelegateAction({
+        delegateActionSerde: delegateActionSerde,
+        publicKey: publicKey,
+        signature: signature
+    })});
+}
+
+function signDelegateActionData(message: Uint8Array, keyPair: KeyPair): Signature {
+    const hash = new Uint8Array(sha256.sha256.array(message));
+    const signature = keyPair.sign(hash);
+
+    return new Signature({ keyType: keyPair.getPublicKey().keyType, data: signature.signature });
+}
+
 export class Signature extends Assignable {
     keyType: KeyType;
     data: Uint8Array;
@@ -143,6 +174,7 @@ export class Action extends Enum {
     addKey: AddKey;
     deleteKey: DeleteKey;
     deleteAccount: DeleteAccount;
+    delegate: SignedDelegateAction;
 }
 
 export const SCHEMA = new Map<Function, any>([
@@ -189,6 +221,7 @@ export const SCHEMA = new Map<Function, any>([
         ['addKey', AddKey],
         ['deleteKey', DeleteKey],
         ['deleteAccount', DeleteAccount],
+        ['delegate', SignedDelegateAction]
     ]}],
     [CreateAccount, { kind: 'struct', fields: [] }],
     [DeployContract, { kind: 'struct', fields: [
@@ -216,6 +249,17 @@ export const SCHEMA = new Map<Function, any>([
     ]}],
     [DeleteAccount, { kind: 'struct', fields: [
         ['beneficiaryId', 'string']
+    ]}],
+    [DelegateAction, { kind: 'struct', fields: [
+        ['receiverId', 'string'],
+        ['deposit', 'u128'],
+        ['nonce', 'u64'],
+        ['actions', [Action]],
+    ]}],
+    [SignedDelegateAction, { kind: 'struct', fields: [
+        ['delegateActionSerde', ['u8']],
+        ['publicKey', PublicKey],
+        ['signature', Signature],
     ]}],
 ]);
 
