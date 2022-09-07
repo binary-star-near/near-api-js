@@ -43,16 +43,19 @@ class Stake extends IAction { stake: BN; publicKey: PublicKey; }
 class AddKey extends IAction { publicKey: PublicKey; accessKey: AccessKey; }
 class DeleteKey extends IAction { publicKey: PublicKey; }
 class DeleteAccount extends IAction { beneficiaryId: string; }
-class DelegateAction extends Assignable {
-    receiverId: string;
-    deposit: BN;
-    gas: BN;
-    nonce: number;
+class ActionArraySerde extends Assignable {
     actions: Action[];
 }
-class SignedDelegateAction extends IAction {
-    delegateActionSerde: Uint8Array;
+class DelegateAction extends Assignable {
+    receiverId: string;
+    nonce: number;
+    action_array_serde: Uint8Array;
     publicKey: PublicKey;
+}
+class SignedDelegateAction extends IAction {
+    deposit: BN;
+    gas: BN;
+    delegateAction: DelegateAction;
     signature: Signature;
 }
 
@@ -110,17 +113,19 @@ export function deleteAccount(beneficiaryId: string): Action {
 
 export function delegateAction(receiverId: string, deposit: BN, gas: BN, actions: Action[], keyPair: KeyPair, nonce: number): Action {
     const publicKey = keyPair.getPublicKey();
-    const delegateActionData = new DelegateAction({receiverId, deposit, gas, nonce, actions});
-    const delegateActionSerde = serialize(SCHEMA, delegateActionData)
-    const signature = signDelegateActionData(delegateActionSerde, keyPair);
+    const action_array_serde = serialize(SCHEMA, new ActionArraySerde({actions}));
+    const delegateAction = new DelegateAction({receiverId, nonce, action_array_serde, publicKey});
+    const signature = signDelegateActionData(delegateAction, keyPair);
     return new Action({delegate: new SignedDelegateAction({
-        delegateActionSerde: delegateActionSerde,
-        publicKey: publicKey,
+        deposit,
+        gas,
+        delegateAction: delegateAction,
         signature: signature
     })});
 }
 
-function signDelegateActionData(message: Uint8Array, keyPair: KeyPair): Signature {
+function signDelegateActionData(delegateAction: DelegateAction, keyPair: KeyPair): Signature {
+    const message =  serialize(SCHEMA, delegateAction);
     const hash = new Uint8Array(sha256.sha256.array(message));
     const signature = keyPair.sign(hash);
 
@@ -251,16 +256,19 @@ export const SCHEMA = new Map<Function, any>([
     [DeleteAccount, { kind: 'struct', fields: [
         ['beneficiaryId', 'string']
     ]}],
-    [DelegateAction, { kind: 'struct', fields: [
-        ['receiverId', 'string'],
-        ['deposit', 'u128'],
-        ['gas', 'u64'],
-        ['nonce', 'u64'],
+    [ActionArraySerde, { kind: 'struct', fields: [
         ['actions', [Action]],
     ]}],
-    [SignedDelegateAction, { kind: 'struct', fields: [
-        ['delegateActionSerde', ['u8']],
+    [DelegateAction, { kind: 'struct', fields: [
+        ['receiverId', 'string'],
+        ['nonce', 'u64'],
+        ['action_array_serde', ['u8']],
         ['publicKey', PublicKey],
+    ]}],
+    [SignedDelegateAction, { kind: 'struct', fields: [
+        ['deposit', 'u128'],
+        ['gas', 'u64'],
+        ['delegateAction', DelegateAction],
         ['signature', Signature],
     ]}],
 ]);

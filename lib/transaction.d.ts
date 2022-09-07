@@ -51,9 +51,16 @@ declare class DeleteKey extends IAction {
 declare class DeleteAccount extends IAction {
     beneficiaryId: string;
 }
-declare class SignedDelegateAction extends IAction {
-    delegateActionSerde: Uint8Array;
+declare class DelegateAction extends Assignable {
+    receiverId: string;
+    nonce: number;
+    action_array_serde: Uint8Array;
     publicKey: PublicKey;
+}
+declare class SignedDelegateAction extends IAction {
+    deposit: BN;
+    gas: BN;
+    delegateAction: DelegateAction;
     signature: Signature;
 }
 export declare function createAccount(): Action;
