@@ -47,14 +47,14 @@ class ActionArraySerde extends Assignable {
     actions: Action[];
 }
 class DelegateAction extends Assignable {
+    senderId: string;
     receiverId: string;
-    nonce: number;
     action_array_serde: Uint8Array;
+    nonce: number;
+    blockHash: Uint8Array;
     publicKey: PublicKey;
 }
 class SignedDelegateAction extends IAction {
-    deposit: BN;
-    gas: BN;
     delegateAction: DelegateAction;
     signature: Signature;
 }
@@ -111,14 +111,12 @@ export function deleteAccount(beneficiaryId: string): Action {
     return new Action({deleteAccount: new DeleteAccount({ beneficiaryId }) });
 }
 
-export function delegateAction(receiverId: string, deposit: BN, gas: BN, actions: Action[], keyPair: KeyPair, nonce: number): Action {
+export function delegateAction(senderId: string, receiverId: string, actions: Action[], nonce: number, blockHash: Uint8Array, keyPair: KeyPair): Action {
     const publicKey = keyPair.getPublicKey();
     const action_array_serde = serialize(SCHEMA, new ActionArraySerde({actions}));
-    const delegateAction = new DelegateAction({receiverId, nonce, action_array_serde, publicKey});
+    const delegateAction = new DelegateAction({senderId, receiverId, action_array_serde, nonce, blockHash, publicKey});
     const signature = signDelegateActionData(delegateAction, keyPair);
     return new Action({delegate: new SignedDelegateAction({
-        deposit,
-        gas,
         delegateAction: delegateAction,
         signature: signature
     })});
@@ -260,14 +258,14 @@ export const SCHEMA = new Map<Function, any>([
         ['actions', [Action]],
     ]}],
     [DelegateAction, { kind: 'struct', fields: [
+        ['senderId', 'string'],
         ['receiverId', 'string'],
-        ['nonce', 'u64'],
         ['action_array_serde', ['u8']],
+        ['nonce', 'u64'],
+        ['blockHash', [32]],
         ['publicKey', PublicKey],
     ]}],
     [SignedDelegateAction, { kind: 'struct', fields: [
-        ['deposit', 'u128'],
-        ['gas', 'u64'],
         ['delegateAction', DelegateAction],
         ['signature', Signature],
     ]}],
