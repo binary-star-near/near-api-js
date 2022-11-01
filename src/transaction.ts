@@ -43,13 +43,13 @@ class Stake extends IAction { stake: BN; publicKey: PublicKey; }
 class AddKey extends IAction { publicKey: PublicKey; accessKey: AccessKey; }
 class DeleteKey extends IAction { publicKey: PublicKey; }
 class DeleteAccount extends IAction { beneficiaryId: string; }
-class ActionArraySerde extends Assignable {
-    actions: Action[];
+class NonDelegateAction extends Assignable {
+    action: Action;
 }
 class DelegateAction extends Assignable {
     senderId: string;
     receiverId: string;
-    action_array_serde: Uint8Array;
+    actions: NonDelegateAction[];
     nonce: number;
     blockHash: Uint8Array;
     publicKey: PublicKey;
@@ -113,8 +113,8 @@ export function deleteAccount(beneficiaryId: string): Action {
 
 export function delegateAction(senderId: string, receiverId: string, actions: Action[], nonce: number, blockHash: Uint8Array, keyPair: KeyPair): Action {
     const publicKey = keyPair.getPublicKey();
-    const action_array_serde = serialize(SCHEMA, new ActionArraySerde({actions}));
-    const delegateAction = new DelegateAction({senderId, receiverId, action_array_serde, nonce, blockHash, publicKey});
+    const nonDelegateActions = actions.map((action: Action) => {return new NonDelegateAction({action})});
+    const delegateAction = new DelegateAction({senderId, receiverId, actions: nonDelegateActions, nonce, blockHash, publicKey});
     const signature = signDelegateActionData(delegateAction, keyPair);
     return new Action({delegate: new SignedDelegateAction({
         delegateAction: delegateAction,
@@ -254,13 +254,13 @@ export const SCHEMA = new Map<Function, any>([
     [DeleteAccount, { kind: 'struct', fields: [
         ['beneficiaryId', 'string']
     ]}],
-    [ActionArraySerde, { kind: 'struct', fields: [
-        ['actions', [Action]],
+    [NonDelegateAction, { kind: 'struct', fields: [
+        ['action', Action],
     ]}],
     [DelegateAction, { kind: 'struct', fields: [
         ['senderId', 'string'],
         ['receiverId', 'string'],
-        ['action_array_serde', ['u8']],
+        ['actions', [NonDelegateAction]],
         ['nonce', 'u64'],
         ['blockHash', [32]],
         ['publicKey', PublicKey],

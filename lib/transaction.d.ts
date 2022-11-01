@@ -51,10 +51,13 @@ declare class DeleteKey extends IAction {
 declare class DeleteAccount extends IAction {
     beneficiaryId: string;
 }
+declare class NonDelegateAction extends Assignable {
+    action: Action;
+}
 declare class DelegateAction extends Assignable {
     senderId: string;
     receiverId: string;
-    action_array_serde: Uint8Array;
+    actions: NonDelegateAction[];
     nonce: number;
     blockHash: Uint8Array;
     publicKey: PublicKey;
