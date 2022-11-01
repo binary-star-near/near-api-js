@@ -59,7 +59,7 @@ declare class DelegateAction extends Assignable {
     receiverId: string;
     actions: NonDelegateAction[];
     nonce: number;
-    blockHash: Uint8Array;
+    blockHeight: number;
     publicKey: PublicKey;
 }
 declare class SignedDelegateAction extends IAction {
@@ -86,7 +86,7 @@ export declare function stake(stake: BN, publicKey: PublicKey): Action;
 export declare function addKey(publicKey: PublicKey, accessKey: AccessKey): Action;
 export declare function deleteKey(publicKey: PublicKey): Action;
 export declare function deleteAccount(beneficiaryId: string): Action;
-export declare function delegateAction(senderId: string, receiverId: string, actions: Action[], nonce: number, blockHash: Uint8Array, keyPair: KeyPair): Action;
+export declare function delegateAction(senderId: string, receiverId: string, actions: Action[], nonce: number, blockHeight: number, keyPair: KeyPair): Action;
 export declare class Signature extends Assignable {
     keyType: KeyType;
     data: Uint8Array;

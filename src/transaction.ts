@@ -51,7 +51,7 @@ class DelegateAction extends Assignable {
     receiverId: string;
     actions: NonDelegateAction[];
     nonce: number;
-    blockHash: Uint8Array;
+    blockHeight: number;
     publicKey: PublicKey;
 }
 class SignedDelegateAction extends IAction {
@@ -111,10 +111,10 @@ export function deleteAccount(beneficiaryId: string): Action {
     return new Action({deleteAccount: new DeleteAccount({ beneficiaryId }) });
 }
 
-export function delegateAction(senderId: string, receiverId: string, actions: Action[], nonce: number, blockHash: Uint8Array, keyPair: KeyPair): Action {
+export function delegateAction(senderId: string, receiverId: string, actions: Action[], nonce: number, blockHeight: number, keyPair: KeyPair): Action {
     const publicKey = keyPair.getPublicKey();
     const nonDelegateActions = actions.map((action: Action) => {return new NonDelegateAction({action})});
-    const delegateAction = new DelegateAction({senderId, receiverId, actions: nonDelegateActions, nonce, blockHash, publicKey});
+    const delegateAction = new DelegateAction({senderId, receiverId, actions: nonDelegateActions, nonce, blockHeight, publicKey});
     const signature = signDelegateActionData(delegateAction, keyPair);
     return new Action({delegate: new SignedDelegateAction({
         delegateAction: delegateAction,
@@ -126,6 +126,7 @@ function signDelegateActionData(delegateAction: DelegateAction, keyPair: KeyPair
     const message =  serialize(SCHEMA, delegateAction);
     const hash = new Uint8Array(sha256.sha256.array(message));
     const signature = keyPair.sign(hash);
+    console.log(`${signature.signature}`)
 
     return new Signature({ keyType: keyPair.getPublicKey().keyType, data: signature.signature });
 }
@@ -262,7 +263,7 @@ export const SCHEMA = new Map<Function, any>([
         ['receiverId', 'string'],
         ['actions', [NonDelegateAction]],
         ['nonce', 'u64'],
-        ['blockHash', [32]],
+        ['blockHeight', 'u64'],
         ['publicKey', PublicKey],
     ]}],
     [SignedDelegateAction, { kind: 'struct', fields: [
